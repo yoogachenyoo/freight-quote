@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>运费报价</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif; background: #f5f5f5; color: #333; font-size: 14px; padding-bottom: 80px; }
+.container { max-width: 500px; margin: 0 auto; padding: 12px; }
+.section { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.section-title { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 12px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-header .section-title { margin-bottom: 0; }
+.add-btn { color: #1890ff; font-size: 13px; padding: 4px 12px; border: 1px solid #1890ff; border-radius: 6px; background: none; cursor: pointer; }
+.add-btn:active { background: #e6f7ff; }
+
+/* Route selector */
+.route-select { width: 100%; padding: 10px 12px; border: 1px solid #d9d9d9; border-radius: 8px; font-size: 14px; background: #f5f7fa; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+.route-info { margin-top: 8px; font-size: 12px; color: #888; line-height: 1.6; }
+
+/* Box card */
+.box-card { background: #f9fafb; border-radius: 10px; padding: 14px; margin-bottom: 10px; border: 1px solid #eee; }
+.box-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.box-title { font-size: 14px; font-weight: 600; color: #1890ff; }
+.box-actions { display: flex; align-items: center; gap: 8px; }
+.irregular-toggle { font-size: 12px; color: #999; padding: 3px 8px; border: 1px solid #ddd; border-radius: 6px; background: none; cursor: pointer; }
+.irregular-toggle.active { color: #fa8c16; border-color: #fa8c16; background: #fff7e6; }
+.delete-box { color: #ff4d4f; font-size: 16px; background: none; border: none; cursor: pointer; padding: 2px 6px; }
+.box-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.input-group { flex: 1; }
+.input-group label { font-size: 12px; color: #888; display: block; margin-bottom: 2px; }
+.input-group input { width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 14px; text-align: center; }
+.input-group input:focus { outline: none; border-color: #1890ff; }
+
+/* Calculate button */
+.calc-btn { width: 100%; background: #1890ff; color: #fff; border: none; border-radius: 10px; font-size: 16px; height: 44px; cursor: pointer; margin: 12px 0; }
+.calc-btn:active { background: #096dd9; }
+.calc-btn:disabled { opacity: 0.6; }
+
+/* Result */
+.result-section { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.error-item { color: #ff4d4f; font-size: 13px; padding: 4px 0; }
+.detail-row { font-size: 13px; padding: 4px 0; color: #555; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.detail-row.highlight { color: #1890ff; font-weight: 500; }
+.detail-row.total { font-size: 16px; font-weight: 700; color: #ff4d4f; }
+.rule-tag { font-size: 11px; color: #fa8c16; background: #fff7e6; border: 1px solid #ffd591; border-radius: 4px; padding: 1px 6px; }
+.divider { height: 1px; background: #eee; margin: 8px 0; }
+
+/* Quote text */
+.quote-text-box { background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 10px; padding: 14px; cursor: pointer; position: relative; }
+.copy-hint { text-align: center; font-size: 12px; color: #52c41a; margin-bottom: 8px; }
+.quote-text { font-size: 13px; color: #333; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
+.copied-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; z-index: 999; animation: fadeOut 1.5s ease forwards; }
+@keyframes fadeOut { 0%,70% { opacity: 1; } 100% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Route Selection -->
+  <div class="section">
+    <div class="section-title">选择路线</div>
+    <select class="route-select" id="routeSelect" onchange="onRouteChange()">
+      <option value="">请选择国家和路线</option>
+    </select>
+    <div class="route-info" id="routeInfo"></div>
+  </div>
+
+  <!-- Boxes -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">箱子信息</div>
+      <button class="add-btn" onclick="addBox()">+ 添加箱子</button>
+    </div>
+    <div id="boxList"></div>
+  </div>
+
+  <!-- Calculate -->
+  <button class="calc-btn" onclick="calculate()">计算报价</button>
+
+  <!-- Result -->
+  <div class="section result-section" id="resultSection" style="display:none"></div>
+</div>
+
+<script>
+var COUNTRIES = [
+  { name: '日本', hg: [35, 33], sx: [65, 63] },
+  { name: '美国', hg: [54, 52], sx: [72, 70] },
+  { name: '新加坡', hg: [40, 38], sx: [65, 63] },
+  { name: '澳大利亚', hg: [60, 58], sx: [68, 66] },
+  { name: '韩国', hg: [40, 38], sx: [65, 63] },
+  { name: '加拿大', hg: [65, 63], sx: [80, 78] },
+  { name: '马来西亚', hg: [45, 43], sx: [66, 64] },
+  { name: '英国', hg: [54, 52], sx: [92, 92] }
+];
+
+var routes = [];
+var boxes = [{ length: '', width: '', height: '', actual_weight: '', qty: 1, is_irregular: false }];
+
+function init() {
+  for (var i = 0; i < COUNTRIES.length; i++) {
+    var c = COUNTRIES[i];
+    routes.push({
+      country: c.name, route_name: '回国专线', route_type: 'hg', ticket_fee: 390,
+      tiers: [{ min: 22, max: 100, price: c.hg[0] }, { min: 100, max: 99999, price: c.hg[1] }],
+      max_box_weight: null, max_girth: null, max_longest_side: null,
+      notes: '本人回国领申报单，需提供护照原件'
+    });
+    routes.push({
+      country: c.name, route_name: '省心专线', route_type: 'sx', ticket_fee: 200,
+      tiers: [{ min: 22, max: 100, price: c.sx[0] }, { min: 100, max: 99999, price: c.sx[1] }],
+      max_box_weight: 30, max_girth: 300, max_longest_side: 118,
+      notes: '无需回国，包税包清关'
+    });
+  }
+  var sel = document.getElementById('routeSelect');
+  for (var i = 0; i < routes.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = routes[i].country + ' - ' + routes[i].route_name;
+    sel.appendChild(opt);
+  }
+  renderBoxes();
+}
+
+function onRouteChange() {
+  var idx = document.getElementById('routeSelect').value;
+  var info = document.getElementById('routeInfo');
+  if (idx === '') { info.innerHTML = ''; return; }
+  var r = routes[idx];
+  var parts = [];
+  if (r.ticket_fee > 0) parts.push('服务费：¥' + r.ticket_fee + '/票');
+  if (r.max_box_weight) parts.push('限重：' + r.max_box_weight + 'kg/箱');
+  if (r.notes) parts.push(r.notes);
+  info.innerHTML = parts.join('&nbsp;&nbsp;');
+  document.getElementById('resultSection').style.display = 'none';
+}
+
+function renderBoxes() {
+  var html = '';
+  for (var i = 0; i < boxes.length; i++) {
+    var b = boxes[i];
+    html += '<div class="box-card">' +
+      '<div class="box-header"><span class="box-title">箱' + (i+1) + '</span><div class="box-actions">' +
+      '<button class="irregular-toggle ' + (b.is_irregular ? 'active' : '') + '" onclick="toggleIrregular(' + i + ')">📦非纸箱包装</button>' +
+      (boxes.length > 1 ? '<button class="delete-box" onclick="removeBox(' + i + ')">✕</button>' : '') +
+      '</div></div>' +
+      '<div class="box-row">' +
+      '<div class="input-group"><label>长(cm)</label><input type="number" inputmode="decimal" value="' + b.length + '" onchange="updateBox(' + i + ',\'length\',this.value)" placeholder="0"></div>' +
+      '<div class="input-group"><label>宽(cm)</label><input type="number" inputmode="decimal" value="' + b.width + '" onchange="updateBox(' + i + ',\'width\',this.value)" placeholder="0"></div>' +
+      '<div class="input-group"><label>高(cm)</label><input type="number" inputmode="decimal" value="' + b.height + '" onchange="updateBox(' + i + ',\'height\',this.value)" placeholder="0"></div>' +
+      '</div>' +
+      '<div class="box-row">' +
+      '<div class="input-group"><label>实重(kg)</label><input type="number" inputmode="decimal" value="' + b.actual_weight + '" onchange="updateBox(' + i + ',\'actual_weight\',this.value)" placeholder="0"></div>' +
+      '<div class="input-group"><label>数量</label><input type="number" inputmode="numeric" value="' + b.qty + '" onchange="updateBox(' + i + ',\'qty\',this.value)" placeholder="1"></div>' +
+      '<div class="input-group" style="visibility:hidden"></div>' +
+      '</div></div>';
+  }
+  document.getElementById('boxList').innerHTML = html;
+}
+
+function addBox() {
+  boxes.push({ length: '', width: '', height: '', actual_weight: '', qty: 1, is_irregular: false });
+  renderBoxes();
+  document.getElementById('resultSection').style.display = 'none';
+}
+
+function removeBox(idx) {
+  boxes.splice(idx, 1);
+  renderBoxes();
+  document.getElementById('resultSection').style.display = 'none';
+}
+
+function toggleIrregular(idx) {
+  boxes[idx].is_irregular = !boxes[idx].is_irregular;
+  renderBoxes();
+  document.getElementById('resultSection').style.display = 'none';
+}
+
+function updateBox(idx, field, val) {
+  boxes[idx][field] = val;
+  document.getElementById('resultSection').style.display = 'none';
+}
+
+function checkNonStandard(longest, secondLongest, girth, volume, weight, isIrregular) {
+  if (girth > 410) return { name: '非标包装费3000', fee: 3000, minBillable: 68 };
+  if (girth > 320 && longest > 155) return { name: '非标包装费3000', fee: 3000, minBillable: 68 };
+  if (longest > 270) return { name: '非标包装费3000', fee: 3000, minBillable: 68 };
+  if (weight > 68) return { name: '非标包装费3000', fee: 3000, minBillable: 68 };
+
+  if (longest > 240) return { name: '非标包装费780', fee: 780, minBillable: 18 };
+  if (girth > 320) return { name: '非标包装费780', fee: 780, minBillable: 68 };
+  if (weight > 50) return { name: '非标包装费780', fee: 780, minBillable: 18 };
+  if (volume > 283168) return { name: '非标包装费780', fee: 780, minBillable: 18 };
+
+  if (longest > 120) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+  if (secondLongest > 75) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+  if (girth > 260) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+  if (weight > 25) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+  if (isIrregular) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+  if (volume > 169901) return { name: '非标包装费280', fee: 280, minBillable: 18 };
+
+  return null;
+}
+
+function calculate() {
+  var routeIdx = document.getElementById('routeSelect').value;
+  if (routeIdx === '') { showToast('请先选择路线'); return; }
+  var route = routes[routeIdx];
+
+  var parsedBoxes = boxes.map(function(b) {
+    return {
+      length: parseFloat(b.length) || 0,
+      width: parseFloat(b.width) || 0,
+      height: parseFloat(b.height) || 0,
+      actual_weight: parseFloat(b.actual_weight) || 0,
+      qty: parseInt(b.qty) || 1,
+      is_irregular: b.is_irregular
+    };
+  });
+
+  if (parsedBoxes.some(function(b) { return b.length <= 0 || b.width <= 0 || b.height <= 0; })) {
+    showToast('请填写完整的箱子尺寸'); return;
+  }
+
+  var boxResults = [];
+  var totalBillable = 0;
+  var totalSurcharge = 0;
+  var errors = [];
+
+  for (var i = 0; i < parsedBoxes.length; i++) {
+    var b = parsedBoxes[i];
+    var dims = [b.length, b.width, b.height].sort(function(a, c) { return c - a; });
+    var longest = dims[0], secondLongest = dims[1], shortest = dims[2];
+    var volume = b.length * b.width * b.height;
+    var girth = longest + 2 * (secondLongest + shortest);
+    var volumeWeight = volume / 5000;
+    var billableRaw = Math.max(b.actual_weight, volumeWeight);
+
+    if (route.max_box_weight && b.actual_weight > route.max_box_weight)
+      errors.push('箱' + (i+1) + '：实际重量' + b.actual_weight + 'kg超过限制' + route.max_box_weight + 'kg，无法邮寄');
+    if (route.max_girth && girth > route.max_girth)
+      errors.push('箱' + (i+1) + '：围长' + Math.round(girth) + 'cm超过限制' + route.max_girth + 'cm，无法邮寄');
+    if (route.max_longest_side && longest > route.max_longest_side)
+      errors.push('箱' + (i+1) + '：最长边' + Math.round(longest) + 'cm超过限制' + route.max_longest_side + 'cm，无法邮寄');
+
+    var boxSurcharge = 0, minBillable = 0, appliedRules = [];
+    if (route.route_type === 'hg') {
+      var matched = checkNonStandard(longest, secondLongest, girth, volume, b.actual_weight, b.is_irregular);
+      if (matched) {
+        boxSurcharge = matched.fee * b.qty;
+        minBillable = matched.minBillable;
+        appliedRules.push({ name: matched.name, fee: boxSurcharge });
+      }
+    }
+
+    var billable = Math.max(billableRaw, minBillable);
+    billable = Math.ceil(billable) * b.qty;
+    totalBillable += billable;
+    totalSurcharge += boxSurcharge;
+
+    boxResults.push({
+      index: i + 1, length: b.length, width: b.width, height: b.height,
+      actual_weight: b.actual_weight, volume_weight: Math.round(volumeWeight * 100) / 100,
+      billable_weight: billable, qty: b.qty, surcharge: boxSurcharge, applied_rules: appliedRules
+    });
+  }
+
+  if (errors.length > 0) {
+    showResult({ success: false, errors: errors, boxes: boxResults });
+    return;
+  }
+
+  var unitPrice = 0;
+  for (var t = 0; t < route.tiers.length; t++) {
+    if (totalBillable >= route.tiers[t].min && totalBillable <= route.tiers[t].max) {
+      unitPrice = route.tiers[t].price; break;
+    }
+  }
+  if (unitPrice === 0 && route.tiers.length > 0) unitPrice = route.tiers[route.tiers.length - 1].price;
+
+  var freight = Math.round(totalBillable * unitPrice * 100) / 100;
+  var ticketFee = route.ticket_fee;
+  var ticketSurcharges = [];
+  if (totalBillable <= 10) ticketSurcharges.push({ name: '代理清关费', fee: 140 });
+  var ticketSurchargeTotal = ticketSurcharges.reduce(function(s, x) { return s + x.fee; }, 0);
+  var total = Math.round((freight + ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100;
+
+  var ticketFeeName = ticketFee > 0 ? (route.route_type === 'hg' ? 'FedEx服务费' : route.route_name + '服务费') : null;
+  var quoteText = generateText(boxResults, totalBillable, unitPrice, freight, ticketFee, route, totalSurcharge, ticketSurcharges, total);
+
+  showResult({
+    success: true, boxes: boxResults, total_billable_weight: totalBillable,
+    unit_price: unitPrice, freight: freight, ticket_fee: ticketFee,
+    ticket_fee_name: ticketFeeName, box_surcharge_total: totalSurcharge,
+    ticket_surcharges: ticketSurcharges, total: total, quote_text: quoteText
+  });
+}
+
+function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route, boxSurchargeTotal, ticketSurcharges, total) {
+  var lines = [];
+  var boxCount = boxes.reduce(function(s, b) { return s + b.qty; }, 0);
+  lines.push('【箱数及尺寸】' + boxCount + '箱 ：');
+  lines.push('');
+  lines.push('预估体积：');
+
+  var weightParts = [];
+  for (var i = 0; i < boxes.length; i++) {
+    var b = boxes[i];
+    var l = Math.round(b.length), w = Math.round(b.width), h = Math.round(b.height);
+    var bw = b.billable_weight / b.qty;
+    for (var q = 0; q < b.qty; q++) {
+      lines.push(l + 'x' + w + 'x' + h + '/5000=' + bw + 'kg');
+      weightParts.push('' + bw);
+    }
+  }
+
+  lines.push('');
+  lines.push('预估运费：' + weightParts.join('+') + '=' + totalBillable + '×' + unitPrice + '=' + freight + '元');
+
+  var feeParts = ['' + freight];
+  if (ticketFee > 0) {
+    var label = route.route_type === 'hg' ? 'FedEx服务费' : route.route_name + '服务费';
+    lines.push(''); lines.push(label + '：' + ticketFee + '元');
+    feeParts.push('' + ticketFee);
+  }
+  if (boxSurchargeTotal > 0) {
+    lines.push('非标附加费：' + boxSurchargeTotal + '元');
+    feeParts.push('' + boxSurchargeTotal);
+  }
+  for (var i = 0; i < ticketSurcharges.length; i++) {
+    lines.push(ticketSurcharges[i].name + '：' + ticketSurcharges[i].fee + '元');
+    feeParts.push('' + ticketSurcharges[i].fee);
+  }
+
+  lines.push('');
+  lines.push('合计：' + feeParts.join('+') + '=' + total + '元');
+  lines.push('--------');
+  lines.push('-先按纸箱规格/尺寸预估运费，最终以包裹抵达国内仓库后的实测体积和重量为准，若有差异，届时多退少补（体积和重量，二者取高者）');
+  lines.push('-国外取件成功后，按预估运费，预付费用到我司支付宝/微信账户即可');
+  return lines.join('\n');
+}
+
+function showResult(result) {
+  var sec = document.getElementById('resultSection');
+  var html = '<div class="section-title">报价结果</div>';
+
+  if (result.errors && result.errors.length > 0) {
+    for (var i = 0; i < result.errors.length; i++)
+      html += '<div class="error-item">⚠️ ' + result.errors[i] + '</div>';
+  }
+
+  if (result.success) {
+    for (var i = 0; i < result.boxes.length; i++) {
+      var b = result.boxes[i];
+      html += '<div class="detail-row"><span>箱' + b.index + '：' + b.length + 'x' + b.width + 'x' + b.height + '/5000 = ' + b.volume_weight + 'kg → 计费' + b.billable_weight + 'kg</span>';
+      if (b.applied_rules.length > 0) html += '<span class="rule-tag">' + b.applied_rules[0].name + '</span>';
+      html += '</div>';
+    }
+    html += '<div class="divider"></div>';
+    html += '<div class="detail-row highlight">总计费重：' + result.total_billable_weight + 'kg × ¥' + result.unit_price + '/kg</div>';
+    html += '<div class="detail-row">运费：¥' + result.freight + '</div>';
+    if (result.ticket_fee > 0) html += '<div class="detail-row">' + result.ticket_fee_name + '：¥' + result.ticket_fee + '</div>';
+    if (result.box_surcharge_total > 0) html += '<div class="detail-row">非标附加费：¥' + result.box_surcharge_total + '</div>';
+    for (var i = 0; i < result.ticket_surcharges.length; i++)
+      html += '<div class="detail-row">' + result.ticket_surcharges[i].name + '：¥' + result.ticket_surcharges[i].fee + '</div>';
+    html += '<div class="divider"></div>';
+    html += '<div class="detail-row total">合计：¥' + result.total + '</div>';
+    html += '<div class="quote-text-box" onclick="copyText()"><div class="copy-hint">👆 点击复制报价文案</div><span class="quote-text">' + result.quote_text.replace(/\n/g, '<br>') + '</span></div>';
+
+    window._quoteText = result.quote_text;
+  }
+
+  sec.innerHTML = html;
+  sec.style.display = 'block';
+  sec.scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyText() {
+  if (!window._quoteText) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(window._quoteText).then(function() { showToast('已复制'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = window._quoteText;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('已复制');
+  }
+}
+
+function showToast(msg) {
+  var old = document.querySelector('.copied-toast');
+  if (old) old.remove();
+  var d = document.createElement('div');
+  d.className = 'copied-toast';
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(function() { d.remove(); }, 1500);
+}
+
+init();
+</script>
+</body>
+</html>
