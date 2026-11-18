@@ -306,7 +306,8 @@ function calculate() {
   var ticketSurchargeTotal = ticketSurcharges.reduce(function(s, x) { return s + x.fee; }, 0);
   var total = Math.round((freight + ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100;
 
-  var ticketFeeName = ticketFee > 0 ? (route.route_type === 'hg' ? 'FedEx服务费' : route.route_name + '服务费') : null;
+  var ticketFeeName = ticketFee > 0 ? (route.route_type === 'hg' ? 'FedEx服务费' : '操作费') : null;
+  if (totalBillable < 22) { freight = 0; unitPrice = 0; total = Math.round((ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100; }
   var quoteText = generateText(boxResults, totalBillable, unitPrice, freight, ticketFee, route, totalSurcharge, ticketSurcharges, total, surchargeDetails);
 
   showResult({
@@ -360,11 +361,15 @@ function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route
       freightParts.push('' + g.bw);
     }
   }
-  lines.push('预估运费：' + freightParts.join('+') + '=' + totalBillable + '×' + unitPrice + '=' + freight + '元');
+  if (unitPrice > 0) {
+    lines.push('预估运费：' + freightParts.join('+') + '=' + totalBillable + '×' + unitPrice + '=' + freight + '元');
+  } else {
+    lines.push('预估计费重：' + freightParts.join('+') + '=' + totalBillable + 'kg（<22kg，不计算运费）');
+  }
 
-  var feeParts = ['' + freight];
+  var feeParts = freight > 0 ? ['' + freight] : [];
   if (ticketFee > 0) {
-    var label = route.route_type === 'hg' ? 'FedEx服务费' : route.route_name + '服务费';
+    var label = route.route_type === 'hg' ? 'FedEx服务费' : '操作费';
     lines.push(''); lines.push(label + '：' + ticketFee + '元');
     feeParts.push('' + ticketFee);
   }
