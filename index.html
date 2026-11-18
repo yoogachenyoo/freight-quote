@@ -307,7 +307,9 @@ function calculate() {
   var total = Math.round((freight + ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100;
 
   var ticketFeeName = ticketFee > 0 ? (route.route_type === 'hg' ? 'FedEx服务费' : '操作费') : null;
-  if (totalBillable < 22) { freight = 0; unitPrice = 0; total = Math.round((ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100; }
+  if (totalBillable < 22) {
+    return { success: false, errors: ['总计费重' + totalBillable + 'kg，不足22kg，属于小件，请联系客服单独报价'], boxes: boxResults };
+  }
   var quoteText = generateText(boxResults, totalBillable, unitPrice, freight, ticketFee, route, totalSurcharge, ticketSurcharges, total, surchargeDetails);
 
   showResult({
