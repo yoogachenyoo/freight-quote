@@ -267,6 +267,25 @@ function calculate() {
     });
   }
 
+  // Aggregate surcharge details for text output
+  var surchargeDetails = [];
+  for (var i = 0; i < boxResults.length; i++) {
+    var rules = boxResults[i].applied_rules;
+    for (var r = 0; r < rules.length; r++) {
+      var found = false;
+      for (var d = 0; d < surchargeDetails.length; d++) {
+        if (surchargeDetails[d].name === rules[r].name) {
+          surchargeDetails[d].count += boxResults[i].qty;
+          found = true; break;
+        }
+      }
+      if (!found) {
+        var perBox = rules[r].fee / boxResults[i].qty;
+        surchargeDetails.push({ name: rules[r].name, unitFee: perBox, count: boxResults[i].qty });
+      }
+    }
+  }
+
   if (errors.length > 0) {
     showResult({ success: false, errors: errors, boxes: boxResults });
     return;
@@ -288,7 +307,7 @@ function calculate() {
   var total = Math.round((freight + ticketFee + totalSurcharge + ticketSurchargeTotal) * 100) / 100;
 
   var ticketFeeName = ticketFee > 0 ? (route.route_type === 'hg' ? 'FedEx服务费' : route.route_name + '服务费') : null;
-  var quoteText = generateText(boxResults, totalBillable, unitPrice, freight, ticketFee, route, totalSurcharge, ticketSurcharges, total);
+  var quoteText = generateText(boxResults, totalBillable, unitPrice, freight, ticketFee, route, totalSurcharge, ticketSurcharges, total, surchargeDetails);
 
   showResult({
     success: true, boxes: boxResults, total_billable_weight: totalBillable,
@@ -298,7 +317,7 @@ function calculate() {
   });
 }
 
-function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route, boxSurchargeTotal, ticketSurcharges, total) {
+function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route, boxSurchargeTotal, ticketSurcharges, total, surchargeDetails) {
   var lines = [];
   var boxCount = boxes.reduce(function(s, b) { return s + b.qty; }, 0);
   lines.push('【箱数及尺寸】' + boxCount + '箱 ：');
@@ -349,8 +368,22 @@ function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route
     lines.push(''); lines.push(label + '：' + ticketFee + '元');
     feeParts.push('' + ticketFee);
   }
-  if (boxSurchargeTotal > 0) {
-    lines.push('非标附加费：' + boxSurchargeTotal + '元');
+  if (boxSurchargeTotal > 0 && surchargeDetails && surchargeDetails.length > 0) {
+    var sParts = [];
+    for (var i = 0; i < surchargeDetails.length; i++) {
+      var sd = surchargeDetails[i];
+      if (sd.count > 1) {
+        sParts.push(sd.unitFee + '×' + sd.count);
+      } else {
+        sParts.push('' + sd.unitFee);
+      }
+    }
+    var sText = sParts.join('+');
+    if (sText !== '' + boxSurchargeTotal) {
+      lines.push('非标附加费：' + sText + '=' + boxSurchargeTotal + '元');
+    } else {
+      lines.push('非标附加费：' + boxSurchargeTotal + '元');
+    }
     feeParts.push('' + boxSurchargeTotal);
   }
   for (var i = 0; i < ticketSurcharges.length; i++) {
