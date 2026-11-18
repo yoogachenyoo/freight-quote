@@ -305,19 +305,43 @@ function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route
   lines.push('');
   lines.push('预估体积：');
 
-  var weightParts = [];
+  var grouped = [];
   for (var i = 0; i < boxes.length; i++) {
     var b = boxes[i];
     var l = Math.round(b.length), w = Math.round(b.width), h = Math.round(b.height);
     var bw = b.billable_weight / b.qty;
-    for (var q = 0; q < b.qty; q++) {
-      lines.push(l + 'x' + w + 'x' + h + '/5000=' + bw + 'kg');
-      weightParts.push('' + bw);
+    var key = l + 'x' + w + 'x' + h;
+    var found = false;
+    for (var g = 0; g < grouped.length; g++) {
+      if (grouped[g].key === key && grouped[g].bw === bw) {
+        grouped[g].count += b.qty;
+        found = true;
+        break;
+      }
+    }
+    if (!found) grouped.push({ key: key, bw: bw, count: b.qty });
+  }
+
+  for (var i = 0; i < grouped.length; i++) {
+    var g = grouped[i];
+    if (g.count > 1) {
+      lines.push(g.key + '/5000=' + g.bw + 'kg');
+    } else {
+      lines.push(g.key + '/5000=' + g.bw + 'kg');
     }
   }
 
   lines.push('');
-  lines.push('预估运费：' + weightParts.join('+') + '=' + totalBillable + '×' + unitPrice + '=' + freight + '元');
+  var freightParts = [];
+  for (var i = 0; i < grouped.length; i++) {
+    var g = grouped[i];
+    if (g.count > 1) {
+      freightParts.push(g.bw + '×' + g.count);
+    } else {
+      freightParts.push('' + g.bw);
+    }
+  }
+  lines.push('预估运费：' + freightParts.join('+') + '=' + totalBillable + '×' + unitPrice + '=' + freight + '元');
 
   var feeParts = ['' + freight];
   if (ticketFee > 0) {
