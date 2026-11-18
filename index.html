@@ -394,8 +394,13 @@ function generateText(boxes, totalBillable, unitPrice, freight, ticketFee, route
   lines.push('');
   lines.push('合计：' + feeParts.join('+') + '=' + total + '元');
   lines.push('--------');
-  lines.push('-先按纸箱规格/尺寸预估运费，最终以包裹抵达国内仓库后的实测体积和重量为准，若有差异，届时多退少补（体积和重量，二者取高者）');
-  lines.push('-国外取件成功后，按预估运费，预付费用到我司支付宝/微信账户即可');
+  if (route.route_type === 'sx') {
+    lines.push('-包裹到国内后再次核重，若超重，则需补超重费');
+    lines.push('-取件成功后，付我司支付宝/微信账户即可');
+  } else {
+    lines.push('-先按纸箱规格/尺寸预估运费，最终以包裹抵达国内仓库后的实测体积和重量为准，若有差异，届时多退少补（体积和重量，二者取高者）');
+    lines.push('-国外取件成功后，按预估运费，预付费用到我司支付宝/微信账户即可');
+  }
   return lines.join('\n');
 }
 
